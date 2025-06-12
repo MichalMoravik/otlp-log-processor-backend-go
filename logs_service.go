@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"sync"
 
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
@@ -22,6 +23,9 @@ type dash0LogsServiceServer struct {
 	addr string
 	// attributeKey is the key we're looking for in the attributes
 	attributeKey string
+	// counts stores the number of logs per attribute value
+	counts map[string]int64
+	mu     sync.RWMutex
 
 	collogspb.UnimplementedLogsServiceServer
 }
@@ -30,6 +34,7 @@ func newServer(addr string) collogspb.LogsServiceServer {
 	s := &dash0LogsServiceServer{
 		addr:         addr,
 		attributeKey: "foo", // hardcoded attribute key for now
+		counts:       make(map[string]int64),
 	}
 	return s
 }
@@ -42,6 +47,9 @@ func (l *dash0LogsServiceServer) Export(ctx context.Context, request *collogspb.
 		// check resource level attributes
 		if resourceLog.Resource != nil {
 			if value, found := extractAttr(resourceLog.Resource.Attributes, l.attributeKey); found {
+				l.mu.Lock()
+				l.counts[value]++
+				l.mu.Unlock()
 				slog.Info("Found attribute at resource level", "key", l.attributeKey, "value", value)
 			}
 		}
@@ -50,6 +58,9 @@ func (l *dash0LogsServiceServer) Export(ctx context.Context, request *collogspb.
 			// Check scope level attributes
 			if scopeLog.Scope != nil {
 				if value, found := extractAttr(scopeLog.Scope.Attributes, l.attributeKey); found {
+					l.mu.Lock()
+					l.counts[value]++
+					l.mu.Unlock()
 					slog.Info("Found attribute at scope level", "key", l.attributeKey, "value", value)
 				}
 			}
@@ -57,6 +68,9 @@ func (l *dash0LogsServiceServer) Export(ctx context.Context, request *collogspb.
 			for _, logRecord := range scopeLog.LogRecords {
 				// Check log level attributes
 				if value, found := extractAttr(logRecord.Attributes, l.attributeKey); found {
+					l.mu.Lock()
+					l.counts[value]++
+					l.mu.Unlock()
 					slog.Info("Found attribute at log level", "key", l.attributeKey, "value", value)
 				}
 			}

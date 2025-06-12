@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -12,6 +13,21 @@ import (
 	otellogs "go.opentelemetry.io/proto/otlp/logs/v1"
 	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
 )
+
+func TestMain(m *testing.M) {
+	// Set environment variables for testing
+	os.Setenv("ATTRIBUTE_KEY", "foo")
+	os.Setenv("REPORT_DURATION", "100ms")
+
+	// Run tests
+	code := m.Run()
+
+	// Clean up
+	os.Unsetenv("ATTRIBUTE_KEY")
+	os.Unsetenv("REPORT_DURATION")
+
+	os.Exit(code)
+}
 
 func TestExtractAttr(t *testing.T) {
 	attributes := []*commonpb.KeyValue{
@@ -63,8 +79,14 @@ func TestExtractAttr(t *testing.T) {
 }
 
 func TestExport_CountingAndReporting(t *testing.T) {
-	server := newServer("localhost:4317", "foo", 100*time.Millisecond).(*dash0LogsServiceServer)
-	defer server.Stop() //clean up the background reporter
+	// Get configuration from environment variables
+	attributeKey := os.Getenv("ATTRIBUTE_KEY")
+	reportDurationStr := os.Getenv("REPORT_DURATION")
+	reportDuration, err := time.ParseDuration(reportDurationStr)
+	require.NoError(t, err)
+
+	server := newServer("localhost:4317", attributeKey, reportDuration).(*dash0LogsServiceServer)
+	defer server.Stop() // Ensure we clean up the background reporter
 
 	request := &collogspb.ExportLogsServiceRequest{
 		ResourceLogs: []*otellogs.ResourceLogs{
@@ -72,7 +94,7 @@ func TestExport_CountingAndReporting(t *testing.T) {
 				Resource: &resourcepb.Resource{
 					Attributes: []*commonpb.KeyValue{
 						{
-							Key: "foo",
+							Key: attributeKey,
 							Value: &commonpb.AnyValue{
 								Value: &commonpb.AnyValue_StringValue{
 									StringValue: "resource_value",
@@ -86,7 +108,7 @@ func TestExport_CountingAndReporting(t *testing.T) {
 						Scope: &commonpb.InstrumentationScope{
 							Attributes: []*commonpb.KeyValue{
 								{
-									Key: "foo",
+									Key: attributeKey,
 									Value: &commonpb.AnyValue{
 										Value: &commonpb.AnyValue_StringValue{
 											StringValue: "scope_value",
@@ -99,7 +121,7 @@ func TestExport_CountingAndReporting(t *testing.T) {
 							{
 								Attributes: []*commonpb.KeyValue{
 									{
-										Key: "foo",
+										Key: attributeKey,
 										Value: &commonpb.AnyValue{
 											Value: &commonpb.AnyValue_StringValue{
 												StringValue: "log_value",
@@ -116,7 +138,7 @@ func TestExport_CountingAndReporting(t *testing.T) {
 	}
 
 	// First export - should count to 1
-	_, err := server.Export(context.Background(), request)
+	_, err = server.Export(context.Background(), request)
 	require.NoError(t, err)
 
 	// Wait for a short time to ensure counts are processed
@@ -129,7 +151,7 @@ func TestExport_CountingAndReporting(t *testing.T) {
 	require.Equal(t, int64(1), counts["log_value"])
 
 	// Wait for reporting interval
-	time.Sleep(150 * time.Millisecond)
+	time.Sleep(reportDuration + 50*time.Millisecond)
 
 	// Check counts after reporting - should be 0
 	counts = server.getCounts()

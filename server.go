@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"log/slog"
 	"net"
+	"os"
 	"time"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
@@ -23,7 +25,12 @@ var (
 	maxReceiveMessageSize = flag.Int("maxReceiveMessageSize", 16777216, "The max message size in bytes the server can receive")
 )
 
-const name = "dash0.com/otlp-log-processor-backend"
+const (
+	name = "dash0.com/otlp-log-processor-backend"
+	// Environment variable names
+	envAttributeKey   = "ATTRIBUTE_KEY"
+	envReportDuration = "REPORT_DURATION"
+)
 
 var (
 	tracer              = otel.Tracer(name)
@@ -40,6 +47,25 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func getConfig() (string, time.Duration, error) {
+	attributeKey := os.Getenv(envAttributeKey)
+	if attributeKey == "" {
+		return "", 0, fmt.Errorf("%s environment variable is required", envAttributeKey)
+	}
+
+	durationStr := os.Getenv(envReportDuration)
+	if durationStr == "" {
+		return "", 0, fmt.Errorf("%s environment variable is required", envReportDuration)
+	}
+
+	duration, err := time.ParseDuration(durationStr)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid %s: %v", envReportDuration, err)
+	}
+
+	return attributeKey, duration, nil
 }
 
 func main() {
@@ -65,6 +91,12 @@ func run() (err error) {
 
 	flag.Parse()
 
+	// Get configuration from environment variables
+	attributeKey, reportDuration, err := getConfig()
+	if err != nil {
+		return err
+	}
+
 	slog.Debug("Starting listener", slog.String("listenAddr", *listenAddr))
 	listener, err := net.Listen("tcp", *listenAddr)
 	if err != nil {
@@ -76,7 +108,7 @@ func run() (err error) {
 		grpc.MaxRecvMsgSize(*maxReceiveMessageSize),
 		grpc.Creds(insecure.NewCredentials()),
 	)
-	collogspb.RegisterLogsServiceServer(grpcServer, newServer(*listenAddr, "foo", time.Minute))
+	collogspb.RegisterLogsServiceServer(grpcServer, newServer(*listenAddr, attributeKey, reportDuration))
 
 	slog.Debug("Starting gRPC server")
 

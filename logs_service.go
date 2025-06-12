@@ -67,6 +67,18 @@ func (l *dash0LogsServiceServer) report() {
 	l.lastReport = time.Now()
 }
 
+// getCounts returns a copy of the current counts
+func (l *dash0LogsServiceServer) getCounts() map[string]int64 {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+
+	counts := make(map[string]int64)
+	for k, v := range l.counts {
+		counts[k] = v
+	}
+	return counts
+}
+
 func (l *dash0LogsServiceServer) Export(ctx context.Context, request *collogspb.ExportLogsServiceRequest) (*collogspb.ExportLogsServiceResponse, error) {
 	slog.DebugContext(ctx, "Received ExportLogsServiceRequest")
 	logsReceivedCounter.Add(ctx, 1)

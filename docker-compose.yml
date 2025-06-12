@@ -1,0 +1,8 @@
+services:
+  processor:
+    build: .
+    ports:
+      - "4317:4317"
+    environment:
+      - ATTRIBUTE_KEY=foo
+      - REPORT_DURATION=1m

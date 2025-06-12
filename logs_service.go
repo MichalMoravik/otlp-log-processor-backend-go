@@ -83,6 +83,11 @@ func (l *dash0LogsServiceServer) Export(ctx context.Context, request *collogspb.
 	slog.DebugContext(ctx, "Received ExportLogsServiceRequest")
 	logsReceivedCounter.Add(ctx, 1)
 
+	// report if it's time to do so
+	if time.Since(l.lastReport) >= l.reportDuration {
+		l.report()
+	}
+
 	for _, resourceLog := range request.ResourceLogs {
 		if resourceLog.Resource != nil {
 			l.process(resourceLog.Resource.Attributes, "resource")
@@ -97,11 +102,6 @@ func (l *dash0LogsServiceServer) Export(ctx context.Context, request *collogspb.
 				l.process(logRecord.Attributes, "log")
 			}
 		}
-	}
-
-	// report if it's time to do so
-	if time.Since(l.lastReport) >= l.reportDuration {
-		l.report()
 	}
 
 	return &collogspb.ExportLogsServiceResponse{}, nil

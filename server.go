@@ -7,6 +7,7 @@ import (
 	"log"
 	"log/slog"
 	"net"
+	"time"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -75,7 +76,7 @@ func run() (err error) {
 		grpc.MaxRecvMsgSize(*maxReceiveMessageSize),
 		grpc.Creds(insecure.NewCredentials()),
 	)
-	collogspb.RegisterLogsServiceServer(grpcServer, newServer(*listenAddr))
+	collogspb.RegisterLogsServiceServer(grpcServer, newServer(*listenAddr, "foo", time.Minute))
 
 	slog.Debug("Starting gRPC server")
 

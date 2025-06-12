@@ -35,12 +35,18 @@ type dash0LogsServiceServer struct {
 	collogspb.UnimplementedLogsServiceServer
 }
 
-func newServer(addr string) collogspb.LogsServiceServer {
+func newServer(addr string, attributeKey string, reportDuration time.Duration) collogspb.LogsServiceServer {
+	if attributeKey == "" {
+		attributeKey = "foo"
+	}
+	if reportDuration == 0 {
+		reportDuration = time.Minute
+	}
 	s := &dash0LogsServiceServer{
 		addr:           addr,
-		attributeKey:   "foo", // hardcoded attribute key for now
+		attributeKey:   attributeKey,
 		counts:         make(map[string]int64),
-		reportDuration: time.Minute, // report every minute
+		reportDuration: reportDuration,
 		lastReport:     time.Now(),
 	}
 	return s

@@ -63,12 +63,7 @@ func TestExtractAttr(t *testing.T) {
 }
 
 func TestExport_CountingAndReporting(t *testing.T) {
-	server := &dash0LogsServiceServer{
-		attributeKey:   "foo",
-		counts:         make(map[string]int64),
-		reportDuration: 100 * time.Millisecond, // Short duration for testing
-		lastReport:     time.Now(),
-	}
+	server := newServer("localhost:4317", "foo", 100*time.Millisecond).(*dash0LogsServiceServer)
 
 	request := &collogspb.ExportLogsServiceRequest{
 		ResourceLogs: []*otellogs.ResourceLogs{

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -36,13 +37,14 @@ type dash0LogsServiceServer struct {
 	collogspb.UnimplementedLogsServiceServer
 }
 
-func newServer(addr string, attributeKey string, reportDuration time.Duration) collogspb.LogsServiceServer {
+func newServer(addr string, attributeKey string, reportDuration time.Duration) (*dash0LogsServiceServer, error) {
 	if attributeKey == "" {
-		attributeKey = "foo"
+		return nil, fmt.Errorf("attribute key cannot be empty")
 	}
-	if reportDuration == 0 {
-		reportDuration = time.Minute
+	if reportDuration <= 0 {
+		return nil, fmt.Errorf("report duration must be positive")
 	}
+
 	s := &dash0LogsServiceServer{
 		addr:           addr,
 		attributeKey:   attributeKey,
@@ -55,10 +57,11 @@ func newServer(addr string, attributeKey string, reportDuration time.Duration) c
 	// Start the reporter in a background goroutine
 	go s.startReporter()
 
-	return s
+	return s, nil
 }
 
 // process checks for the attribute key in the given attributes and updates the count if found
+// Note: using a worker pool (semaphore) would be an overkill since the lock is the bottleneck here.
 func (l *dash0LogsServiceServer) process(attributes []*commonpb.KeyValue, level string) {
 	if value, found := extractAttr(attributes, l.attributeKey); found {
 		l.mu.Lock()

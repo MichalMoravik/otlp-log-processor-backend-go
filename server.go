@@ -110,7 +110,13 @@ func run() (err error) {
 		grpc.MaxRecvMsgSize(*maxReceiveMessageSize),
 		grpc.Creds(insecure.NewCredentials()),
 	)
-	collogspb.RegisterLogsServiceServer(grpcServer, newServer(*listenAddr, attributeKey, reportDuration))
+
+	server, err := newServer(*listenAddr, attributeKey, reportDuration)
+	if err != nil {
+		slog.Error("Failed to create server", "error", err)
+		return err
+	}
+	collogspb.RegisterLogsServiceServer(grpcServer, server)
 
 	slog.Debug("Starting gRPC server")
 	if err := grpcServer.Serve(listener); err != nil {

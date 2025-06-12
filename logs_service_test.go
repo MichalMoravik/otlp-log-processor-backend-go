@@ -85,7 +85,8 @@ func TestExport_CountingAndReporting(t *testing.T) {
 	reportDuration, err := time.ParseDuration(reportDurationStr)
 	require.NoError(t, err)
 
-	server := newServer("localhost:4317", attributeKey, reportDuration).(*dash0LogsServiceServer)
+	server, err := newServer("localhost:4317", attributeKey, reportDuration)
+	require.NoError(t, err)
 	defer server.Stop() // Ensure we clean up the background reporter
 
 	request := &collogspb.ExportLogsServiceRequest{

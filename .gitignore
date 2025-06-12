@@ -5,6 +5,12 @@
 *.so
 *.dylib
 
+# Binary files without extension (Unix executables)
+*
+!*/
+!*.*
+
+
 # Test binary, built with `go test -c`
 *.test
 

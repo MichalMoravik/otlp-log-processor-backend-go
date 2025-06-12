@@ -31,6 +31,7 @@ type dash0LogsServiceServer struct {
 	reportDuration time.Duration
 	// lastReport specifies the time.Now() when the last report was made
 	lastReport time.Time
+	stopChan   chan struct{} // Channel to signal the reporter to stop
 
 	collogspb.UnimplementedLogsServiceServer
 }
@@ -48,7 +49,12 @@ func newServer(addr string, attributeKey string, reportDuration time.Duration) c
 		counts:         make(map[string]int64),
 		reportDuration: reportDuration,
 		lastReport:     time.Now(),
+		stopChan:       make(chan struct{}),
 	}
+
+	// Start the reporter in a background goroutine
+	go s.startReporter()
+
 	return s
 }
 
@@ -85,14 +91,30 @@ func (l *dash0LogsServiceServer) getCounts() map[string]int64 {
 	return counts
 }
 
+// startReporter runs in a background goroutine and reports counts at regular intervals
+func (l *dash0LogsServiceServer) startReporter() {
+	ticker := time.NewTicker(l.reportDuration)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			l.report()
+		case <-l.stopChan:
+			l.report()
+			return
+		}
+	}
+}
+
+// Stop shuts down the server
+func (l *dash0LogsServiceServer) Stop() {
+	close(l.stopChan)
+}
+
 func (l *dash0LogsServiceServer) Export(ctx context.Context, request *collogspb.ExportLogsServiceRequest) (*collogspb.ExportLogsServiceResponse, error) {
 	slog.DebugContext(ctx, "Received ExportLogsServiceRequest")
 	logsReceivedCounter.Add(ctx, 1)
-
-	// report if it's time to do so
-	if time.Since(l.lastReport) >= l.reportDuration {
-		l.report()
-	}
 
 	for _, resourceLog := range request.ResourceLogs {
 		if resourceLog.Resource != nil {

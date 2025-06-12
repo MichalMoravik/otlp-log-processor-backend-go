@@ -64,6 +64,7 @@ func TestExtractAttr(t *testing.T) {
 
 func TestExport_CountingAndReporting(t *testing.T) {
 	server := newServer("localhost:4317", "foo", 100*time.Millisecond).(*dash0LogsServiceServer)
+	defer server.Stop() //clean up the background reporter
 
 	request := &collogspb.ExportLogsServiceRequest{
 		ResourceLogs: []*otellogs.ResourceLogs{
@@ -114,34 +115,38 @@ func TestExport_CountingAndReporting(t *testing.T) {
 		},
 	}
 
-	// Test 1: Verify counting works
+	// First export - should count to 1
 	_, err := server.Export(context.Background(), request)
 	require.NoError(t, err)
 
-	// Check counts immediately after processing
+	// Wait for a short time to ensure counts are processed
+	time.Sleep(10 * time.Millisecond)
+
+	// Check counts after first export
 	counts := server.getCounts()
-	assert.Equal(t, int64(1), counts["resource_value"])
-	assert.Equal(t, int64(1), counts["scope_value"])
-	assert.Equal(t, int64(1), counts["log_value"])
+	require.Equal(t, int64(1), counts["resource_value"])
+	require.Equal(t, int64(1), counts["scope_value"])
+	require.Equal(t, int64(1), counts["log_value"])
 
-	// Test 2: Verify reporting happens after duration
-	time.Sleep(150 * time.Millisecond) // Wait for reporting duration
+	// Wait for reporting interval
+	time.Sleep(150 * time.Millisecond)
 
-	// Send another request to trigger reporting
+	// Check counts after reporting - should be 0
+	counts = server.getCounts()
+	require.Equal(t, int64(0), counts["resource_value"])
+	require.Equal(t, int64(0), counts["scope_value"])
+	require.Equal(t, int64(0), counts["log_value"])
+
+	// Second export - should count to 1 again
 	_, err = server.Export(context.Background(), request)
 	require.NoError(t, err)
 
-	// Check that counts are 1 after reporting
-	counts = server.getCounts()
-	assert.Equal(t, int64(1), counts["resource_value"])
-	assert.Equal(t, int64(1), counts["scope_value"])
-	assert.Equal(t, int64(1), counts["log_value"])
+	// Wait for a short time to ensure counts are processed
+	time.Sleep(10 * time.Millisecond)
 
-	// Test 3: Send another batch, counts should be 2
-	_, err = server.Export(context.Background(), request)
-	require.NoError(t, err)
+	// Check counts after second export
 	counts = server.getCounts()
-	assert.Equal(t, int64(2), counts["resource_value"])
-	assert.Equal(t, int64(2), counts["scope_value"])
-	assert.Equal(t, int64(2), counts["log_value"])
+	require.Equal(t, int64(1), counts["resource_value"])
+	require.Equal(t, int64(1), counts["scope_value"])
+	require.Equal(t, int64(1), counts["log_value"])
 }

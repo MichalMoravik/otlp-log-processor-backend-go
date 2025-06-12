@@ -62,45 +62,6 @@ func TestExtractAttr(t *testing.T) {
 	}
 }
 
-/* TODO: make the integration test useful
-func TestExport_AllLevels(t *testing.T) {
-	server := newServer("localhost:4317")
-
-	request := &collogspb.ExportLogsServiceRequest{
-		ResourceLogs: []*otellogs.ResourceLogs{
-			{
-				Resource: &resourcepb.Resource{
-					Attributes: []*commonpb.KeyValue{
-						{Key: "foo", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "resource_value"}}},
-					},
-				},
-				ScopeLogs: []*otellogs.ScopeLogs{
-					{
-						Scope: &commonpb.InstrumentationScope{
-							Attributes: []*commonpb.KeyValue{
-								{Key: "foo", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "scope_value"}}},
-							},
-						},
-						LogRecords: []*otellogs.LogRecord{
-							{
-								Attributes: []*commonpb.KeyValue{
-									{Key: "foo", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "log_value"}}},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	_, err := server.Export(context.Background(), request)
-	if err != nil {
-		t.Errorf("Export() error = %v", err)
-	}
-}
-*/
-
 func TestExport_CountingAndReporting(t *testing.T) {
 	server := &dash0LogsServiceServer{
 		attributeKey:   "foo",

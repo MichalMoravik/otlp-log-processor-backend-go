@@ -94,13 +94,15 @@ func run() (err error) {
 	// Get configuration from environment variables
 	attributeKey, reportDuration, err := getConfig()
 	if err != nil {
-		return err
+		slog.Error("Failed to get config", "error", err)
+		return
 	}
 
 	slog.Debug("Starting listener", slog.String("listenAddr", *listenAddr))
 	listener, err := net.Listen("tcp", *listenAddr)
 	if err != nil {
-		return err
+		slog.Error("Failed to listen", "error", err)
+		return
 	}
 
 	grpcServer := grpc.NewServer(
@@ -111,6 +113,9 @@ func run() (err error) {
 	collogspb.RegisterLogsServiceServer(grpcServer, newServer(*listenAddr, attributeKey, reportDuration))
 
 	slog.Debug("Starting gRPC server")
-
-	return grpcServer.Serve(listener)
+	if err := grpcServer.Serve(listener); err != nil {
+		slog.Error("Failed to serve", "error", err)
+		return err
+	}
+	return nil
 }

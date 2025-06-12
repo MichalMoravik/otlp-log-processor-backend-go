@@ -39,6 +39,16 @@ func newServer(addr string) collogspb.LogsServiceServer {
 	return s
 }
 
+// process checks for the attribute key in the given attributes and updates the count if found
+func (l *dash0LogsServiceServer) process(attributes []*commonpb.KeyValue, level string) {
+	if value, found := extractAttr(attributes, l.attributeKey); found {
+		l.mu.Lock()
+		l.counts[value]++
+		l.mu.Unlock()
+		slog.Info("Found attribute", "level", level, "key", l.attributeKey, "value", value)
+	}
+}
+
 func (l *dash0LogsServiceServer) Export(ctx context.Context, request *collogspb.ExportLogsServiceRequest) (*collogspb.ExportLogsServiceResponse, error) {
 	slog.DebugContext(ctx, "Received ExportLogsServiceRequest")
 	logsReceivedCounter.Add(ctx, 1)
@@ -46,33 +56,19 @@ func (l *dash0LogsServiceServer) Export(ctx context.Context, request *collogspb.
 	for _, resourceLog := range request.ResourceLogs {
 		// check resource level attributes
 		if resourceLog.Resource != nil {
-			if value, found := extractAttr(resourceLog.Resource.Attributes, l.attributeKey); found {
-				l.mu.Lock()
-				l.counts[value]++
-				l.mu.Unlock()
-				slog.Info("Found attribute at resource level", "key", l.attributeKey, "value", value)
-			}
+			l.process(resourceLog.Resource.Attributes, "resource")
 		}
 
+		// Process each scope log
 		for _, scopeLog := range resourceLog.ScopeLogs {
 			// Check scope level attributes
 			if scopeLog.Scope != nil {
-				if value, found := extractAttr(scopeLog.Scope.Attributes, l.attributeKey); found {
-					l.mu.Lock()
-					l.counts[value]++
-					l.mu.Unlock()
-					slog.Info("Found attribute at scope level", "key", l.attributeKey, "value", value)
-				}
+				l.process(scopeLog.Scope.Attributes, "scope")
 			}
 
+			// Process each log record
 			for _, logRecord := range scopeLog.LogRecords {
-				// Check log level attributes
-				if value, found := extractAttr(logRecord.Attributes, l.attributeKey); found {
-					l.mu.Lock()
-					l.counts[value]++
-					l.mu.Unlock()
-					slog.Info("Found attribute at log level", "key", l.attributeKey, "value", value)
-				}
+				l.process(logRecord.Attributes, "log")
 			}
 		}
 	}

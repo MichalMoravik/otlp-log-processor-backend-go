@@ -4,7 +4,7 @@ A log processor made in Golang. My simple solution of counting the attribute key
 
 ## Running
 
-The service is Dockerize so that it's easily runnable on any machine. To run it:
+The service is Dockerized so that it's easily runnable on any machine. To run it:
 
 1. Run `docker compose up` (or for compose v1: `docker-compose up`) in the root of the project
 2. The code is then compiled during the build step and the executable should be running
@@ -26,4 +26,4 @@ Reporting is run within a separate go routine, independent of the Export functio
 
 ## Concurrency
 
-I could see the potential for using a workers pool (semaphore) but in this case, since we use the Lock before counting, the Lock would become a bottleneck anyway. If this were a different operation than for example simple counting of occurrencies, e.g. publishing to PubSub, the pool could potentially be useful.
+I could see the potential for using a workers pool (semaphore) but in this case, since we use the Lock before counting, the Lock would become a bottleneck anyway. If this was a different operation than counting of occurrences, e.g. publishing to PubSub, the pool could potentially be useful.
